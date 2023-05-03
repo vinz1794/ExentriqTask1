@@ -1,0 +1,87 @@
+[
+    {
+        "id": "bab7aa7269b3ad7b",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "2d7e33476415a3ac",
+        "type": "http request",
+        "z": "bab7aa7269b3ad7b",
+        "name": "richiesta",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/ODataV4/Company('TEST%2034%20-%202023-04-04')/VendorLedgerEntries",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "Authorization",
+                "keyValue": "",
+                "valueType": "other",
+                "valueValue": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6Ii1LSTNROW5OUjdiUm9meG1lWm9YcWJIWkdldyIsImtpZCI6Ii1LSTNROW5OUjdiUm9meG1lWm9YcWJIWkdldyJ9.eyJhdWQiOiJodHRwczovL2FwaS5idXNpbmVzc2NlbnRyYWwuZHluYW1pY3MuY29tIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvZTUyYWZkYWYtZmMwZi00YjJkLWI4NmYtMGIzMmQ5YTlmMDdlLyIsImlhdCI6MTY4MzExNTI1OSwibmJmIjoxNjgzMTE1MjU5LCJleHAiOjE2ODMxMTkxNTksImFpbyI6IkUyWmdZQ2d1V2JFcTc4V2F4dzR5R1dWVGRMK2NCd0E9IiwiYXBwaWQiOiI3OTZiYmZhMi0zYzJmLTQwN2QtOGUxMS1iZTRmNjNmZjczNDMiLCJhcHBpZGFjciI6IjEiLCJpZHAiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC9lNTJhZmRhZi1mYzBmLTRiMmQtYjg2Zi0wYjMyZDlhOWYwN2UvIiwiaWR0eXAiOiJhcHAiLCJvaWQiOiJmYjljZTc5OC1hYjQ1LTQ4Y2YtOGI0Yy02NWE4NTkxZTQ3ZTMiLCJyaCI6IjAuQVlJQXJfMHE1UV84TFV1NGJ3c3kyYW53ZmozdmJabHNzMU5CaGdlbV9Ud0J1Si1DQUFBLiIsInJvbGVzIjpbIkF1dG9tYXRpb24uUmVhZFdyaXRlLkFsbCIsImFwcF9hY2Nlc3MiLCJBZG1pbkNlbnRlci5SZWFkV3JpdGUuQWxsIiwiQVBJLlJlYWRXcml0ZS5BbGwiXSwic3ViIjoiZmI5Y2U3OTgtYWI0NS00OGNmLThiNGMtNjVhODU5MWU0N2UzIiwidGlkIjoiZTUyYWZkYWYtZmMwZi00YjJkLWI4NmYtMGIzMmQ5YTlmMDdlIiwidXRpIjoibTFqSUZia1ZLME9FYUdVTVk5WWpBQSIsInZlciI6IjEuMCJ9.Psl75HbScSV_A-NYXH5npSrnvTkLP3oT5tMBW27BXv2JAw45Vju_q_cnukn0c9OXCp6pyawHI7ZrWg1pF5ttbfQtyTHWdC62ZA7iyYWxssNBypyv6J3Ad1U4TeFq9AQaWls2EYKIM-IyciL6Df7QYV3rBd29Uu7gX2cD6-EHOM9BQguJ-mKoZyzkkd3hulfovJGQcnVlL9-OMVgyB6X8LDOTTcwKxnEgdmdQEDo8m05Ii_YuEgav7CB3DDLXp51vzwDYmzj0oBJ8fvQAwcEVuyUVFN9E-WdAY0qM1CJiweSYoGYA1AzS467TmzgKlUItgFI6nv7Gpi0i119UOkIdrw"
+            }
+        ],
+        "x": 320,
+        "y": 180,
+        "wires": [
+            [
+                "e644c76a4e188f16",
+                "7c77d08e0ae0a966"
+            ]
+        ]
+    },
+    {
+        "id": "7c77d08e0ae0a966",
+        "type": "http response",
+        "z": "bab7aa7269b3ad7b",
+        "name": "risposta",
+        "statusCode": "",
+        "headers": {},
+        "x": 520,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "04b0c67946f3f0f6",
+        "type": "http in",
+        "z": "bab7aa7269b3ad7b",
+        "name": "",
+        "url": "/service",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 130,
+        "y": 180,
+        "wires": [
+            [
+                "2d7e33476415a3ac"
+            ]
+        ]
+    },
+    {
+        "id": "e644c76a4e188f16",
+        "type": "debug",
+        "z": "bab7aa7269b3ad7b",
+        "name": "debug 1",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 520,
+        "y": 80,
+        "wires": []
+    }
+]
