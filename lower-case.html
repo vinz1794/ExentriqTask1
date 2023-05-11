@@ -1,0 +1,184 @@
+<script type="text/javascript">
+    RED.nodes.registerType('lower-case',{
+        category: 'TestNode',
+        color: '#a6bbcf',
+        defaults: {
+            tenant:  { value: "", required: true},
+            clientID: { value: "", required: true},
+            clientSecret: { value: "", required: true},
+            scope: { value: "https://api.businesscentral.dynamics.com/.default", required: true},
+            grantType: { value: "client_credentials", required: true},
+            code: { value: "", required: true}, //can be empty
+            redirectUri: { value: "/oauth2/redirect_uri", required: true}, //can be empty
+            servicesDropDown: { value: "", required: true},
+            environment: { value: "", required: true},
+            Company: { value: "", required: true},
+            append: { value: "", required: true},
+            tokenURL:{value: ""},
+            message:{value:""},
+        },
+        inputs:1,
+        outputs:1,
+        icon: "file.png",
+        label: function() {
+            return this.name||"BC365";
+        },
+        oneditprepare: () => {
+            //to access to locally db saved value
+            this.tenant = $("#node-input-tenant").val();
+            this.clientid = $("#node-input-clientID").val();
+            this.clientSecret = $("#node-input-clientSecret").val();
+            
+            //URL TOKEN
+            //Generally: https://login.microsoftonline.com/<tenant-id>(azure)/OAuth2/V2.0/token
+            //Example: https://login.microsoftonline.com/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/oauth2/v2.0/token
+
+            //client to server...
+            //server to server
+
+            //URL for GET DATAS with POSTMAN from BC365 ODATAV4
+            //Generally: https://api.businesscentral.dynamics.com/v2.0/<Environment(id)>/<name>(of Environment)/ODataV4/companies/ServiziWeb
+            //Example: https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/ODataV4/Company('TEST%2034%20-%202023-04-04')/ServiziWeb
+            //debugger;
+            const tokenURL = 'https://login.microsoftonlien.com/'+$("#node-input-tenant").val()+'/oauth2/V2.0/token';
+            
+            /*
+            $.ajax({
+                url: tokenURL,
+                type: "POST",
+                contentType:'application/json',
+                data: {
+                    client_id: $("#node-input-clientID").val(),
+                    client_secret: $("#node-input-clientSecret").val(),
+                    grant_type: "client_credentials",
+                    scope:$("#node-input-scope").val(),
+                    code:$("#node-input-code").val(),
+                    redirect_uri:$("#node-input-redirectUri").val(),
+                    tenant:$("#node-input-tenant").val(),
+                },
+                success: function(response) {
+                    console.log('success::', response)
+                },
+                complete: function(response) {
+                },
+                error: (request, status, error) => {
+                    console.log('error request::', error)
+                }
+            });*/
+            //request from api get services /servizi_web
+            const services = [
+                {
+                    "@odata.etag": "W/\"JzE5OzI2MTUyMDE4NTY0NTMzODA5MjAxOzAwOyc=\"",
+                    "Object_Type": "Codeunit",
+                    "Service_Name": "CompanySetupService",
+                    "Object_ID": 1801,
+                    "ObjectName": "Company Setup Service",
+                    "All_Tenants": true,
+                    "ExcludeFieldsOutsideRepeater": false,
+                    "ExcludeNonEditableFlowFields": false,
+                    "Published": true,
+                    "ODataV4Url": "https://go.microsoft.com/fwlink/?linkid=2138827",
+                    "SOAPUrl": "https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/WS/TEST%2034%20-%202023-04-04/Codeunit/CompanySetupService"
+                },
+                {
+                    "@odata.etag": "W/\"JzIwOzE3ODMzMDU0OTg3MzMxNDkzMTI0MTswMDsn\"",
+                    "Object_Type": "Codeunit",
+                    "Service_Name": "Core255Posting",
+                    "Object_ID": 60100,
+                    "ObjectName": "Core255API Logic",
+                    "All_Tenants": false,
+                    "ExcludeFieldsOutsideRepeater": false,
+                    "ExcludeNonEditableFlowFields": false,
+                    "Published": true,
+                    "ODataV4Url": "https://go.microsoft.com/fwlink/?linkid=2138827",
+                    "SOAPUrl": "https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/WS/TEST%2034%20-%202023-04-04/Codeunit/Core255Posting"
+                },
+            ];
+            const filterServices = services.filter((item) => !!item.Published);
+            const options = [];
+            filterServices.forEach((item) => {
+                options.push({ label: item.Service_Name, value: item.SOAPUrl});
+            });
+            
+            $("#node-input-servicesDropDown").typedInput({
+                types: [
+                    {
+                    // value: "fruit",
+                        options,
+                    }
+                ]
+            });
+
+                
+           
+        }
+    });
+           
+</script>
+
+
+<script type="text/html" data-template-name="lower-case">
+           
+           
+     <div class="form-row">
+        <label for="node-input-tenant"> tenant</label>
+        <input type="text" id="node-input-tenant" placeholder="tenant">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-clientID"> clientID</label>
+        <input type="text" id="node-input-clientID" placeholder="clientID">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-clientSecret">clientSecret</label>
+        <input type="text" id="node-input-clientSecret" placeholder="clientSecret">
+    </div>
+
+    
+   
+    <div class="form-row">
+        <label for="node-input-scope">scope</label>
+        <input type="text" id="node-input-scope" placeholder="scope">
+    </div>
+
+
+    
+    <div class="form-row">
+        <label for="node-input-grantType"> grantType</label>
+        <input type="text" id="node-input-grantType" placeholder="grantType">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-code">code</label>
+        <input type="text" id="node-input-code" placeholder="code">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-redirectUri">redirectUri</label>
+        <input type="text" id="node-input-redirectUri" placeholder="redirectUri">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-environment">environment</label>
+        <input type="text" id="node-input-environment" placeholder="environment">
+    </div>
+      <div class="form-row">
+        <label for="node-input-company">company</label>
+        <input type="text" id="node-input-company" placeholder="company">
+    </div>
+      <div class="form-row">
+        <label for="node-input-append">append</label>
+        <input type="text" id="node-input-append" placeholder="append">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-servicesDropDown">Seleziona la richiesta SOAP</label>
+        <input type="text" id="node-input-servicesDropDown">
+    </div>
+
+</script>
+
+<script type="text/html" data-help-name="lower-case">
+    <p>to Make OAuth2, to Create SOAP Request, to Send SOAP Request</p>
+</script>
