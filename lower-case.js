@@ -1,64 +1,238 @@
-module.exports = function(RED) {
+module.exports = function (RED) {
     "use strict";
     const axios = require('axios');
     const FormData = require('form-data');
+    const express = require('express');
+    const cors = require('cors');
+    const app = express();
+    const port = 3000;
+    const soap = require('soap');
+    const path = require('path');
+  
+    app.use(cors({
+        origin: '*'
+    }));
+
+    app.listen(port, () => {
+        console.log(`Server in ascolto sulla porta ${port}`);
+    });
+
     function LowerCaseNode(config) {
-
-        RED.nodes.createNode(this,config);
+        RED.nodes.createNode(this, config);
         const node = this;
-
-        //event "input" si scatena quando parte il flusso
-        node.on('input', async function (msg, nodeSend, nodeDone) {
-
-            
-            const { configuration } = msg?.payload || {}
-            /*const tenant= 'e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e';// $("#node-input-tenant").val();
-            const tokenURL = 'https://login.microsoftonline.com/'+tenant+'/oauth2/V2.0/token';
-            const grantType = 'client_credentials';
-            const clientID = '49ff1b00-3c36-4ac8-bc31-f335f81f64cd';//$("#node-input-clientID").val();
-            const clientSecret = 'g4c8Q~2bxjSp2GJSIaqAgqLKngTakqw4AAti3a2W';// $("#node-input-clientSecret").val();
-            //db local*/
-            console.log('input:::bc365::::configuration::', configuration);
-
-            const data = new FormData();
-            data.append('client_id', configuration.client_id);
-            data.append('client_secret', configuration.client_secret);
-            data.append('grant_type', configuration.grant_type);
-            data.append('scope', configuration.scope);
-            data.append('tenant', configuration.tenant);
-            data.append('code', configuration.code);
-            data.append('redirect_uri', configuration.redirect_uri);
-            const config = {
-                method: 'post',
-                maxBodyLength: Infinity,
-                url: 'https://login.microsoftonline.com/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/oauth2/v2.0/token',
-                headers: { 
-                    ...data.getHeaders()
-                },
-                data
-            };
-            try {
-             const response = await axios.request(config);
-             console.log('response:::', response.data);
-             msg.payload= response.data;
-             console.log('TOKEN_____: ',msg.payload.access_token)
-
-            } catch (error) {
-                alert('error::oauth request token')
-            }
-
-            
-            node.send(msg);
-        
-
-           return msg;
+        /**
+         * get Oauth2 and the xml of web Services to pass to mini-Server
+         */
+        app.get('/wrapperoauth2', (req, res) => {
+            getOauth2(config)
+                .then(async (response) => {
+                    //const methodName = config.servicesMethods.split(';')[0];
+                    //const urlMethod = config.servicesDropDown.split(';')[1];
+                    //const dynamicUrl ="https://api.businesscentral.dynamics.com/v2.0/"+config.tenant+"/"+config.environment+"/ODataV4/Company(\'"+config.company+"}\')/"+config.append;
+                    const url = "https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/ODataV4/Company('TEST%2034%20-%202023-04-04')/ServiziWeb";
+                    if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
+                    const responseSoap = await getRequestDynamic(url, response?.data?.access_token);
+                    res.json(responseSoap.data);
+                })
+                .catch((e) => {
+                    console.log('error:::', e)
+                });
         });
 
+        /**
+         *  Oatuh2 -> wsdl of xml
+         */
+        app.get('/wsdlDynamic', (req, res) => {
 
-   
-               
+            getOauth2(config)
+                .then(async (response) => {
+                    const url = req.query.SOAPUrl;
+                    if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
+                    const responseMethod = await getRequestDynamic(url, response?.data?.access_token);
+                    res.set('Content-Type', 'text/xml');
+                    res.send(responseMethod.data)
+                })
+                .catch((error) => {
+                    console.error(error);
+                    res.json({ status: 500, error });
+                })
+        })
+
+        /**
+         * pass to the mini server the Methods and the respective parameters of the web services list
+         */
+        app.get('/methods', (req, res) => {
+            getOauth2(config)
+                .then(async (response) => {
+                    const url = req.query.SOAPUrl;
+                    const methodName = req.query.methodName;
+
+                    if (!url || !methodName) return console.warn('parametri mancanti..')
+                    if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
+                    try {
+                        //get client and describe and format array, response to front-end 
+                        const client = await getClientSoap(response.data.access_token, url);
+                        var methodNameJustify = methodName.replace(/\. |\s/g, "_");
+                        //regex for names which includes '.' or ' ' -> '_'
+                        let soapURLName = url.includes('/Page/') ? methodNameJustify + '_Service' : methodNameJustify;
+                        const clientDescribe = client.describe();
+                        const methodsList = clientDescribe[soapURLName][methodNameJustify + '_Port']
+                        console.log('methodsList:::::', methodsList);
+                        const functionNames = Object.keys(methodsList);
+                        const parameterMapping = {};
+
+                        for (const functionName in methodsList) {
+                            if (Object.hasOwnProperty.call(methodsList, functionName)) {
+                                const functionParams = methodsList[functionName].input;
+                                parameterMapping[functionName] = functionParams;
+                            }
+                        }
+
+                        console.log('parameterMapping', parameterMapping);
+                        res.json(parameterMapping);
+                    } catch (error) {
+                        console.error(error);
+                        res.json({ status: 500, error });
+                    }
+                })
+                .catch((e) => {
+                    console.log('error:::', e)
+                });
+        });
+
+        /**
+         * event "input", when the flux start by inject/httpRequest
+         */
+        node.on('input', async function (msg, nodeSend, nodeDone) {
+            if (!msg.payload) {
+                msg.payload = 'non ci sono informazione nel payload';
+                nodeSend(msg);
+                return msg;
+            }
+            try {
+                const methodName = config.servicesMethods.split(';')[0];
+                const urlMethod = config.servicesDropDown.split(';')[1];
+                executeSoap(config, urlMethod, methodName, msg.payload, (res) => {//pass the corrected Payload in relation with the output in front-end;
+                    msg.response = res;
+                    console.log('msg.response:::::::', msg.response);
+                    nodeSend(msg);
+                    return msg;
+                }); 
+
+            } catch (error) {
+                console.log('error:::::::', error);
+            }
+        });
     }
 
-    RED.nodes.registerType("lower-case",LowerCaseNode);
-       
+    /**
+     * get client soap
+     * @param {*} accessToken 
+     * @param {*} SOAPUrl 
+     * @returns 
+     */
+    async function getClientSoap(accessToken, SOAPUrl) {
+        let client = null;
+        try {
+            const options = {
+                wsdl_headers: {
+                    "Authorization": "Bearer " + accessToken
+                }
+            }
+            const urlClient = 'http://127.0.0.1:3000/wsdlDynamic?SOAPUrl=' + SOAPUrl
+            client = await soap.createClientAsync(urlClient, options)
+        } catch (error) {
+            console.error('error::', error)
+        }
+
+        return client;
+    }
+
+    /**
+     * 
+     * Function that, after inserting the parameters, allows me to make the SOAP POST of the request obtaining the result in the client.
+     * @param {*} config 
+     * @param {*} urlMethod 
+     * @param {*} methodName 
+     * @param {*} args 
+     * @returns 
+     */
+    async function executeSoap(config, urlMethod, methodName, args, cb) {
+        try {
+            const response = await getOauth2(config);
+            if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
+            //Method WSDL
+            //const urlTest = "http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?wsdl";   
+            const accessToken = response.data.access_token;
+            //const methodName = config.servicesMethods.split(';')[0];
+            const client = await getClientSoap(accessToken, urlMethod);
+            client.setSecurity(new soap.BearerSecurity(accessToken));
+
+            if (!client) throw 'Errore nella Get Client';
+            client[methodName](args, function (err, result) {
+                if (err) {
+                    console.error('ERRORCLIENT:::::', err);
+                } else {
+                    // Elabora il risultato della chiamata qui
+                    console.log('result:::::::', result);
+                    console.error('lastRequest:::::', client.lastRequest);
+                    console.error('lastResponse:::::', client.lastResponse);
+                    const lastResponse = client.lastResponse;
+                    cb(lastResponse)
+                }
+            });
+
+        } catch (error) {
+            console.log('Errore nell\'Oauth2 per la richiesta Soap');
+            cb(error)
+        }
+    }
+
+    /**
+     * to get Oauth2
+     * @param {*} config 
+     * @returns 
+     */
+    const getOauth2 = async (config) => {
+        const tokenURL = 'https://login.microsoftonline.com/' + config.tenant + '/oauth2/V2.0/token';
+        const data = new FormData();
+        data.append('client_id', config.clientID);
+        data.append('client_secret', config.clientSecret);
+        data.append('grant_type', config.grantType);
+        data.append('scope', config.scope);
+        data.append('tenant', config.tenant);
+        data.append('code', config.code);
+        data.append('redirect_uri', config.redirectUri);
+        const configurationAxios = {
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: tokenURL,
+            headers: {
+                ...data.getHeaders()
+            },
+            data
+        };
+        return await axios.request(configurationAxios);
+    }
+
+    /**
+     * To get Request/WSDL from the selected URL
+     * @param {*} url 
+     * @param {*} accessToken 
+     * @returns 
+     */
+    const getRequestDynamic = async (url, accessToken) => {
+        const Authorization = `Bearer ${accessToken}`
+        const config = {
+            method: 'get',
+            maxBodyLength: Infinity,
+            url,
+            headers: {
+                Authorization
+            }
+        };
+        return await axios.request(config);
+    }
+
+    RED.nodes.registerType("lower-case", LowerCaseNode);
 }

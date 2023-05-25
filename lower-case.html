@@ -3,19 +3,21 @@
         category: 'TestNode',
         color: '#a6bbcf',
         defaults: {
-            tenant:  { value: "", required: true},
-            clientID: { value: "", required: true},
-            clientSecret: { value: "", required: true},
-            scope: { value: "https://api.businesscentral.dynamics.com/.default", required: true},
-            grantType: { value: "client_credentials", required: true},
-            code: { value: "", required: true}, //can be empty
-            redirectUri: { value: "/oauth2/redirect_uri", required: true}, //can be empty
-            servicesDropDown: { value: "", required: true},
-            environment: { value: "", required: true},
-            Company: { value: "", required: true},
-            append: { value: "", required: true},
-            tokenURL:{value: ""},
-            message:{value:""},
+            tenant:  { value: "", required: true},//cannot be empty
+            clientID: { value: "", required: true},//cannot be empty
+            clientSecret: { value: "", required: true},//cannot be empty
+            baseUrl: {value: "https://api.businesscentral.dynamics.com/v2.0/",required: true},
+            scope: { value: "https://api.businesscentral.dynamics.com/.default", required: true},//cannot be empty
+            grantType: { value: "client_credentials", required: true},//cannot be empty
+            code: { value: "", required: true}, //cannot be empty
+            redirectUri: { value: "/oauth2/redirect_uri", required: true}, //cannot be empty
+            servicesDropDown: { value: "", required: true},//cannot be empty
+            servicesMethods:{value:""},//can be empty
+            environment: { value: "", required: true},//cannot be empty
+            company: { value: "", required: true},//cannot be empty
+            append: { value: "", required: true},//cannot be empty
+            accessToken:{value: ""},//can be empty
+            xmlSkeletonMessage:{value:""}//can be empty
         },
         inputs:1,
         outputs:1,
@@ -23,95 +25,123 @@
         label: function() {
             return this.name||"BC365";
         },
+        
         oneditprepare: () => {
-            //to access to locally db saved value
-            this.tenant = $("#node-input-tenant").val();
-            this.clientid = $("#node-input-clientID").val();
-            this.clientSecret = $("#node-input-clientSecret").val();
-            
-            //URL TOKEN
-            //Generally: https://login.microsoftonline.com/<tenant-id>(azure)/OAuth2/V2.0/token
-            //Example: https://login.microsoftonline.com/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/oauth2/v2.0/token
+                // Use the Selector to obtain the desired element
+                var servicesDropDown = $("#node-input-servicesDropDown");
+                var servicesMethods = $("#node-input-servicesMethods");
+                var loadingIndicator = $("#node-loadingIndicator");
+                var soapURL = '';
+                var parametersElement = document.getElementById("node-input-parameters");
 
-            //client to server...
-            //server to server
+                var parametersValue = "elaborazione dei parametri in corso..";
 
-            //URL for GET DATAS with POSTMAN from BC365 ODATAV4
-            //Generally: https://api.businesscentral.dynamics.com/v2.0/<Environment(id)>/<name>(of Environment)/ODataV4/companies/ServiziWeb
-            //Example: https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/ODataV4/Company('TEST%2034%20-%202023-04-04')/ServiziWeb
-            //debugger;
-            const tokenURL = 'https://login.microsoftonlien.com/'+$("#node-input-tenant").val()+'/oauth2/V2.0/token';
+                parametersElement.textContent = parametersValue;
             
-            /*
-            $.ajax({
-                url: tokenURL,
-                type: "POST",
-                contentType:'application/json',
-                data: {
-                    client_id: $("#node-input-clientID").val(),
-                    client_secret: $("#node-input-clientSecret").val(),
-                    grant_type: "client_credentials",
-                    scope:$("#node-input-scope").val(),
-                    code:$("#node-input-code").val(),
-                    redirect_uri:$("#node-input-redirectUri").val(),
-                    tenant:$("#node-input-tenant").val(),
-                },
-                success: function(response) {
-                    console.log('success::', response)
-                },
-                complete: function(response) {
-                },
-                error: (request, status, error) => {
-                    console.log('error request::', error)
-                }
-            });*/
-            //request from api get services /servizi_web
-            const services = [
-                {
-                    "@odata.etag": "W/\"JzE5OzI2MTUyMDE4NTY0NTMzODA5MjAxOzAwOyc=\"",
-                    "Object_Type": "Codeunit",
-                    "Service_Name": "CompanySetupService",
-                    "Object_ID": 1801,
-                    "ObjectName": "Company Setup Service",
-                    "All_Tenants": true,
-                    "ExcludeFieldsOutsideRepeater": false,
-                    "ExcludeNonEditableFlowFields": false,
-                    "Published": true,
-                    "ODataV4Url": "https://go.microsoft.com/fwlink/?linkid=2138827",
-                    "SOAPUrl": "https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/WS/TEST%2034%20-%202023-04-04/Codeunit/CompanySetupService"
-                },
-                {
-                    "@odata.etag": "W/\"JzIwOzE3ODMzMDU0OTg3MzMxNDkzMTI0MTswMDsn\"",
-                    "Object_Type": "Codeunit",
-                    "Service_Name": "Core255Posting",
-                    "Object_ID": 60100,
-                    "ObjectName": "Core255API Logic",
-                    "All_Tenants": false,
-                    "ExcludeFieldsOutsideRepeater": false,
-                    "ExcludeNonEditableFlowFields": false,
-                    "Published": true,
-                    "ODataV4Url": "https://go.microsoft.com/fwlink/?linkid=2138827",
-                    "SOAPUrl": "https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/WS/TEST%2034%20-%202023-04-04/Codeunit/Core255Posting"
-                },
-            ];
-            const filterServices = services.filter((item) => !!item.Published);
-            const options = [];
-            filterServices.forEach((item) => {
-                options.push({ label: item.Service_Name, value: item.SOAPUrl});
-            });
-            
-            $("#node-input-servicesDropDown").typedInput({
-                types: [
-                    {
-                    // value: "fruit",
-                        options,
+                var isServicesMethodsInitialized = false; // Flag to track the inizialization of servicesMethods
+
+                $.ajax({
+                    url: 'http://127.0.0.1:3000/wrapperoauth2',
+                    type: "get",
+                    cors: true,
+                    contentType: 'application/json',
+                    beforeSend: function () {
+                    loadingIndicator.show(); //display the loading indicator before the AJAX request.
+                    },
+                    success: function(response) {
+                        const services = response.value;
+                        const filterServices = services.filter(item => !!item.Published);
+                        const options = filterServices.map(item => ({ label: item.Service_Name, value: item.Service_Name+ ";" + item.SOAPUrl  }));
+                        servicesDropDown.typedInput({
+                        types: [
+                            {
+                              options
+                            }
+                        ]
+                        });
+                        
+                    },
+                    complete: function(response) {
+                        loadingIndicator.hide(); //Hide the loading indicator at the end of the AJAX request.
+                    },
+                    error: function(request, status, error) {
+                        console.log('error request::', error);
                     }
-                ]
-            });
+                });
 
+                servicesDropDown.on('change', function(event, type, value) {
+                    if(value!= null){
+                        const methodName = value.split(';')[0];
+                        const urlValue = value.split(';')[1];
+                        console.log('VALUE::onCHANGE:::', urlValue);
+                        updateServicesMethods(urlValue, servicesMethods, methodName);
+                    }else{
+                        console.log('value null su onchange');
+                    }
+                    
+                });
+
+                async function updateServicesMethods(selectedValue, servicesMethods, methodName) {
+                    if (!selectedValue) return;
+                    //const urlSelectedValue =selectedValue.split(';')[1];
+                    console.log('SELECTEDVALUE::::::',selectedValue);
+
+                    $.ajax({
+                        url: 'http://127.0.0.1:3000/methods?SOAPUrl=' + selectedValue +'&methodName='+methodName,
+                        type: 'get',
+                        dataType: 'json',
+                        beforeSend: function () {
+                            loadingIndicator.show(); //Display the loading indicator before the AJAX request.
+                        },
+                        success: function(response) {
+                            //options for the select of node-red
+                            let options = [];
+                            Object.keys(response).forEach(function(key) {
+                                var value = response[key];
+                                options.push( { label: key, value: key+";"+JSON.stringify(value) });
+                            });
+                            
+                            console.log('options::::::', options);
+                            const typedInputOptions = {
+                                types: [
+                                    {
+                                        options
+                                    }
+                                ]
+                            };
+
+                            // Verify if servicesMethods was inizialized as TypedInput
+                            if (isServicesMethodsInitialized) {
+                                servicesMethods.typedInput("destroy");
+                            }
+                            
+                            servicesMethods.typedInput(typedInputOptions);                          
+                            isServicesMethodsInitialized = true;
+                        },
+                        complete: function () {
+                            loadingIndicator.hide(); //Hide the loading indicator at the end of the AJAX request.
+                        },
+                            error: function(request, status, error) {
+                            console.log('error request:', error);
+                        }
+                    });
+                };
                 
-           
-        }
+                servicesMethods.on('change',async function(event, type, value) {
+                        if (value==null) throw 'value non valido';
+                        const splitValue = value.split(";");
+                        const methodName = splitValue[0];
+                        const paramObj = splitValue[1];
+                        try {
+                            const valueObj = JSON.parse(paramObj);
+                            parametersElement.textContent = JSON.stringify(valueObj,null,2);               
+                            //console.log('parameterToShow::::',parametersElement.textContent);
+                        } catch (error) {
+                            console.error("Error:::::", error);
+                        }
+                    
+                });
+        },      
     });
            
 </script>
@@ -135,7 +165,10 @@
         <input type="text" id="node-input-clientSecret" placeholder="clientSecret">
     </div>
 
-    
+     <div class="form-row">
+        <label for="node-input-baseUrl">baseUrl</label>
+        <input type="text" id="node-input-baseUrl" placeholder="baseUrl">
+    </div>
    
     <div class="form-row">
         <label for="node-input-scope">scope</label>
@@ -171,12 +204,22 @@
         <label for="node-input-append">append</label>
         <input type="text" id="node-input-append" placeholder="append">
     </div>
-
+    <div id="node-loadingIndicator"  style="display: none;color:#ff0000; text:align-center" >Loading...</div>
     <div class="form-row">
-        <label for="node-input-servicesDropDown">Seleziona la richiesta SOAP</label>
+        <label for="node-input-servicesDropDown">Seleziona il Servizio Web</label>
         <input type="text" id="node-input-servicesDropDown">
     </div>
 
+    <div class="form-row">
+        <label for="node-input-servicesMethods">Seleziona il Metodo</label>
+        <input type="text" id="node-input-servicesMethods">
+    </div>
+    <div class="form-row">
+        <label for="node-input-parameters">Parametri del Metodo Selezionato</label>
+        <pre>
+            <code type="text" id="node-input-parameters"></code>
+        </pre>
+    </div>
 </script>
 
 <script type="text/html" data-help-name="lower-case">
