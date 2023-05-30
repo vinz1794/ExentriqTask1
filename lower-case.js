@@ -7,14 +7,13 @@ module.exports = function (RED) {
     const app = express();
     const port = 3000;
     const soap = require('soap');
-    const path = require('path');
   
     app.use(cors({
         origin: '*'
     }));
 
     app.listen(port, () => {
-        console.log(`Server in ascolto sulla porta ${port}`);
+        console.log(`Server listening at the port: ${port}`);
     });
 
     function LowerCaseNode(config) {
@@ -28,7 +27,7 @@ module.exports = function (RED) {
                 .then(async (response) => {
                     //const methodName = config.servicesMethods.split(';')[0];
                     //const urlMethod = config.servicesDropDown.split(';')[1];
-                    //const dynamicUrl ="https://api.businesscentral.dynamics.com/v2.0/"+config.tenant+"/"+config.environment+"/ODataV4/Company(\'"+config.company+"}\')/"+config.append;
+                    //const dynamicUrl =config.baseUrl+config.tenant+"/"+config.environment+"/ODataV4/Company(\'"+config.company+"}\')/"+config.append;
                     const url = "https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/ODataV4/Company('TEST%2034%20-%202023-04-04')/ServiziWeb";
                     if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
                     const responseSoap = await getRequestDynamic(url, response?.data?.access_token);
@@ -67,7 +66,7 @@ module.exports = function (RED) {
                     const url = req.query.SOAPUrl;
                     const methodName = req.query.methodName;
 
-                    if (!url || !methodName) return console.warn('parametri mancanti..')
+                    if (!url || !methodName) return console.warn('missed url / methodName')
                     if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
                     try {
                         //get client and describe and format array, response to front-end 
@@ -113,9 +112,10 @@ module.exports = function (RED) {
                 const methodName = config.servicesMethods.split(';')[0];
                 const urlMethod = config.servicesDropDown.split(';')[1];
                 executeSoap(config, urlMethod, methodName, msg.payload, (res) => {//pass the corrected Payload in relation with the output in front-end;
-                    msg.response = res;
-                    console.log('msg.response:::::::', msg.response);
+                    msg.payload = res;
+                    console.log('msg.payload:::::::', msg.payload);
                     nodeSend(msg);
+                    //nodeDone(msg);
                     return msg;
                 }); 
 
@@ -155,30 +155,49 @@ module.exports = function (RED) {
      * @param {*} urlMethod 
      * @param {*} methodName 
      * @param {*} args 
+     * @param {*} cb
      * @returns 
      */
-    async function executeSoap(config, urlMethod, methodName, args, cb) {
+    async function executeSoap(config, urlMethod, paramName, args, cb) {
         try {
             const response = await getOauth2(config);
             if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
             //Method WSDL
             //const urlTest = "http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?wsdl";   
             const accessToken = response.data.access_token;
-            //const methodName = config.servicesMethods.split(';')[0];
+            const metName = config.servicesDropDown.split(';')[0];
+            var methodNameJustify = metName.replace(/\. |\s/g, "_");
+            var paramNameJustify = paramName.replace(/\. |\s/g, "_");
+
             const client = await getClientSoap(accessToken, urlMethod);
             client.setSecurity(new soap.BearerSecurity(accessToken));
 
             if (!client) throw 'Errore nella Get Client';
-            client[methodName](args, function (err, result) {
+            console.log('client:::', client);
+            console.log('methodName_client:::', paramNameJustify);
+
+            if (!client[paramNameJustify]) throw 'methods name not found';
+
+            client[paramNameJustify](args, function (err, result) {
                 if (err) {
                     console.error('ERRORCLIENT:::::', err);
                 } else {
                     // Elabora il risultato della chiamata qui
                     console.log('result:::::::', result);
-                    console.error('lastRequest:::::', client.lastRequest);
-                    console.error('lastResponse:::::', client.lastResponse);
-                    const lastResponse = client.lastResponse;
-                    cb(lastResponse)
+
+                    //console.log('lastRequest:::::', client.lastRequest);
+                    //console.log('lastResponse:::::', client.lastResponse);
+                    let lastResponse =[];
+                    //if (!result[paramNameJustify+"_Result"]) throw 'The Request has no Results';
+                    if(result[paramNameJustify+"_Result"]!=null){
+                        lastResponse = result[paramNameJustify+"_Result"][methodNameJustify];
+                        console.log('result:::::::', result[paramNameJustify+"_Result"][methodNameJustify]);
+                    }else{
+                        lastResponse.push('The Request has no Results');
+                    }
+            
+
+                    cb(lastResponse);
                 }
             });
 
