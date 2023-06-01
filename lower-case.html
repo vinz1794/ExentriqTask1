@@ -83,7 +83,6 @@
 
                 async function updateServicesMethods(selectedValue, servicesMethods, methodName) {
                     if (!selectedValue) return;
-                    //const urlSelectedValue =selectedValue.split(';')[1];
                     console.log('SELECTEDVALUE::::::',selectedValue);
 
                     $.ajax({
@@ -135,7 +134,6 @@
                         try {
                             const valueObj = JSON.parse(paramObj);
                             parametersElement.textContent = JSON.stringify(valueObj,null,2);               
-                            //console.log('parameterToShow::::',parametersElement.textContent);
                         } catch (error) {
                             console.error("Error:::::", error);
                         }

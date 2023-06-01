@@ -25,10 +25,7 @@ module.exports = function (RED) {
         app.get('/wrapperoauth2', (req, res) => {
             getOauth2(config)
                 .then(async (response) => {
-                    //const methodName = config.servicesMethods.split(';')[0];
-                    //const urlMethod = config.servicesDropDown.split(';')[1];
-                    //const dynamicUrl =config.baseUrl+config.tenant+"/"+config.environment+"/ODataV4/Company(\'"+config.company+"}\')/"+config.append;
-                    const url = "https://api.businesscentral.dynamics.com/v2.0/e52afdaf-fc0f-4b2d-b86f-0b32d9a9f07e/Production/ODataV4/Company('TEST%2034%20-%202023-04-04')/ServiziWeb";
+                    const url =config.baseUrl+config.tenant+"/"+config.environment+"/ODataV4/Company(\'"+config.company+"}\')/"+config.append;
                     if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
                     const responseSoap = await getRequestDynamic(url, response?.data?.access_token);
                     res.json(responseSoap.data);
@@ -162,8 +159,7 @@ module.exports = function (RED) {
         try {
             const response = await getOauth2(config);
             if (!response?.data?.access_token) return res.json({ status: 401, reason: 'access token not exist' });
-            //Method WSDL
-            //const urlTest = "http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso?wsdl";   
+
             const accessToken = response.data.access_token;
             const metName = config.servicesDropDown.split(';')[0];
             var methodNameJustify = metName.replace(/\. |\s/g, "_");
